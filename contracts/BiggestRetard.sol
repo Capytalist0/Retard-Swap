@@ -194,7 +194,7 @@ contract BiggestRetard is Ownable {
         }
         uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number);
         uint256 rtrdReward = multiplier.mul(rtrdPerBlock).mul(pool.allocPoint).div(totalAllocPoint);
-        rtrd.mint(devaddr, rtrdReward.div(10));
+        rtrd.mint(devaddr, rtrdReward.div(20));
         rtrd.mint(address(this), rtrdReward);
         pool.accRtrdPerShare = pool.accRtrdPerShare.add(rtrdReward.mul(1e12).div(lpSupply));
         pool.lastRewardBlock = block.number;

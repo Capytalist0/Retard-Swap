@@ -3,10 +3,10 @@ pragma solidity 0.6.12;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-
+import "./CoomToken.sol";
 
 // Retard Ribbon with Governance.
-// Forked from SushiSwap, only minimal code has been changed.
+// Forked from SushiSwap and Retard Ribbon, only minimal code has been changed.
 contract RetardRibbon is ERC20("RetardRibbon", "RTRD"), Ownable {
     /// @notice Creates `_amount` token to `_to`. Must only be called by the owner (BiggestRetard).
     function mint(address _to, uint256 _amount) public onlyOwner {
@@ -20,14 +20,20 @@ contract RetardRibbon is ERC20("RetardRibbon", "RTRD"), Ownable {
     // Which is copied and modified from COMPOUND:
     // https://github.com/compound-finance/compound-protocol/blob/master/contracts/Governance/Comp.sol
 
-    /// @dev A record of each accounts delegate
-    mapping (address => address) internal _delegates;
-
     /// @dev A checkpoint for marking number of votes from a given block
     struct Checkpoint {
         uint32 fromBlock;
         uint256 votes;
     }
+
+    /// @notice The COOM token, which gets minted every transaction.
+    CoomToken public coom;
+
+    /// @notice The amount of burn during every transfer. Burn = Amount/Divisor.
+    uint8 public coomDivisor;
+
+    /// @dev A record of each accounts delegate
+    mapping (address => address) internal _delegates;
 
     /// @notice A record of votes checkpoints for each account, by index
     mapping (address => mapping (uint32 => Checkpoint)) public checkpoints;
@@ -49,6 +55,46 @@ contract RetardRibbon is ERC20("RetardRibbon", "RTRD"), Ownable {
 
     /// @notice An event thats emitted when a delegate account's vote balance changes
     event DelegateVotesChanged(address indexed delegate, uint previousBalance, uint newBalance);
+
+
+    constructor(CoomToken _coom, uint8 _coomDivisor) public {
+        require(_coomDivisor > 0, "Retard: coomDivisor must be bigger than 0");
+        coom = _coom;
+        coomDivisor = _coomDivisor;
+    }
+
+    /**
+     * @notice Transfers amount from msg.sender to recipient. Burns a percentage of Retard to Coom tokens.
+     * @param recipient The address that receives the tokens.
+     * @param amount The amount of Retard to be transfered.
+     */
+    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+        // MaggotDivisor
+        uint256 coomAmount = amount.div(coomDivisor);
+
+        coom.mint(recipient, coomAmount);
+
+        _burn(msg.sender, coomAmount);
+
+        return super.transfer(recipient, amount.sub(coomAmount));
+    }
+
+    /**
+     * @notice Transfers amount from sender address to recipient. Burns a percentage of Retard to Coom tokens.
+     * @param sender The address that sends the tokens
+     * @param recipient The address that receives the tokens
+     * @param amount The amount of Retard to be Transfered.
+     */
+    function transferFrom(address sender, address recipient, uint256 amount) public virtual override returns (bool) {
+
+        uint256 coomAmount = amount.div(coomDivisor);
+
+        coom.mint(recipient, coomAmount);
+
+        _burn(sender, coomAmount);
+
+        return super.transferFrom(sender, recipient, amount.sub(coomAmount));
+    }
 
     /**
      * @notice Delegate votes from `msg.sender` to `delegatee`
